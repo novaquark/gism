@@ -22,10 +22,10 @@ hostOS = platform.system()
 def setOS():
     print("Detected " + hostOS + " os")
     if hostOS == "Windows" or re.match("CYGWIN_NT", hostOS):
-        host_os = "win"
+        hostOS = "win"
         rsync = "rsync.exe"
     elif hostOS == "Linux":
-        host_os = "linux"
+        hostOS = "linux"
         rsync = "rsync"
     else:
         print("Unsupported OS")
