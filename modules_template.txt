@@ -1,0 +1,5 @@
+# syntax
+# os(win|linux|all)[,nobuildonly|runtimeonly] sourceURL destinationFolder (revision|trunk)
+# runtimeonly will not be checked out by --buildonly command line option
+# buildonly will only be checked out by --buildonly command line option
+
