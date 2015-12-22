@@ -102,9 +102,10 @@ commentRE = re.compile('^#')
 svnRE = re.compile('^http://')
 gitRE = re.compile('^ssh://')
 
-def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeonly=False):
+def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeonly=False, recursive=False):
 
     lines = [line.strip() for line in open(modules) if line.strip()]
+    previousDir = os.getcwd()
     os.chdir(dest)
 
     for line in lines:
@@ -125,6 +126,13 @@ def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeon
                 else:
                     print("Unsupported URL scheme at the moment\n")
 
+    if(recursive and os.access(destination+'/'+modules, os.R_OK)):
+        os.chdir(destination)
+        update(cache=cache, modules=modules, dest=".", buildonly=buildonly, runtimeonly=runtimeonly)
+
+    os.chdir(previousDir)
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(prog=__file__)
@@ -132,6 +140,7 @@ if __name__ == '__main__':
     parser.add_argument('--buildonly', help='Do not checkout runtime only dependencies', action='store_true')
     parser.add_argument('--modules', default="modules.txt", help='Specify a modules file')
     parser.add_argument('--dest', default=".", help='Specify a destination PATH for the whole treem')
+    parser.add_argument('--recursive', help='find modules.txt recursively and update them', action='store_true')
 
     args, unknown = parser.parse_known_args()
 
@@ -140,5 +149,5 @@ if __name__ == '__main__':
         for option in unknown:
             print(option)
 
-    update(cache=args.cache, buildonly=args.buildonly, modules=args.modules, dest=args.dest)
+    update(cache=args.cache, buildonly=args.buildonly, modules=args.modules, dest=args.dest, recursive=args.recursive)
 
