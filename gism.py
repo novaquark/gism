@@ -17,9 +17,12 @@ def touch(path):
     with open(path, 'a'):
         os.utime(path, None)
 
+
 hostOS = platform.system()
+rsync = ""
 
 def setOS():
+    global hostOS, rsync # Mmmm
     print("Detected " + hostOS + " os")
     if hostOS == "Windows" or re.match("CYGWIN_NT", hostOS):
         hostOS = "win"
@@ -31,8 +34,10 @@ def setOS():
         print("Unsupported OS")
         exit(1)
 
+setOS()
+        
 def svnCheckout(url, revision, destination, cache=""):
-    """ The cache system improves performance of initial branch builds on CI"""
+    """ The cache system improves performance of initial branch builds on continuous integration"""
     svnDestination = destination
     ret = 0
     useCache=False
@@ -119,8 +124,6 @@ def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeon
                         exit(retvalue)
                 else:
                     print("Unsupported URL scheme at the moment\n")
-
-setOS()
 
 if __name__ == '__main__':
 
