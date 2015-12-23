@@ -7,7 +7,7 @@ import platform
 import argparse
 import datetime
 from distutils.spawn import find_executable as which
-
+from subprocess import check_call, call
 
 #FIXME: test runtime dependancies
 #FIXME: add git support for initial checkout (no updates yes)
@@ -20,22 +20,36 @@ def touch(path):
 
 hostOS = platform.system()
 rsync = ""
+git = ""
 
 def setOS():
-    global hostOS, rsync # Mmmm
+    global hostOS, rsync, git # Mmmm
     print("Detected " + hostOS + " os")
     if hostOS == "Windows" or re.match("CYGWIN_NT", hostOS):
         hostOS = "win"
         rsync = "rsync.exe"
+        git = "git.exe"
     elif hostOS == "Linux":
         hostOS = "linux"
         rsync = "rsync"
+        git = "git"
     else:
         print("Unsupported OS")
         exit(1)
 
 setOS()
-        
+
+def gitCheckout(url, destination):
+    check_call([git, 'clone', url, destination])
+    gitUpdate(destination)
+
+def gitUpdate(path):
+    pwd = os.getcwd()
+    os.chdir(path)
+    call([git, 'pull'])
+    check_call([git, 'submodule', 'update', '--init', '--recursive'])
+    os.chdir(pwd)
+
 def svnCheckout(url, revision, destination, cache=""):
     """ The cache system improves performance of initial branch builds on continuous integration"""
     svnDestination = destination
@@ -125,6 +139,12 @@ def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeon
                     if retvalue != 0:
                         print("to login on SVN ask sysadmin for login and password\n")
                         exit(retvalue)
+                elif gitRE.match(url):
+                    if os.access(destination+"/.git", os.R_OK):
+                        gitUpdate(destination)
+                    else:
+                        gitCheckout(url, destination)
+
                 else:
                     print("Unsupported URL scheme at the moment\n")
 
