@@ -72,9 +72,11 @@ def svnCheckout(url, revision, destination, cache=""):
     else:
         print("svn update: " + url + " (rev " + revision + ") -> " + svnDestination)
         # ignore conflicts
-        ret += os.system("svn resolve --accept theirs-full -R " + svnDestination)
-        ret += os.system("svn switch " + url + revURL + " " + svnDestination)
-        ret += os.system("svn update --accept theirs-full --force " + revParam + " " + svnDestination)
+        # FIXME: should be an option
+        #ret += os.system("svn resolve --accept theirs-full -R " + svnDestination)
+        #ret += os.system("svn switch " + url + revURL + " " + svnDestination)
+        #ret += os.system("svn update --accept theirs-full --force " + revParam + " " + svnDestination)
+        ret += os.system("svn update " + revParam + " " + svnDestination)
 
     if(ret != 0):
         print("Error updating SVN, will use fallback")
