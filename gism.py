@@ -119,7 +119,6 @@ svnRE = re.compile('^http://')
 gitRE = re.compile('^ssh://')
 
 def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeonly=False, recursive=False):
-
     lines = [line.strip() for line in open(modules) if line.strip()]
     previousDir = os.getcwd()
     os.chdir(dest)
@@ -134,6 +133,7 @@ def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeon
                 ((buildonly ) and (not 'runtimeonly' in platform)) \
                ):
                 revision = revision.strip()
+                doRecursion = recursive
                 if svnRE.match(url):
                     retvalue = svnCheckout(url, revision, destination, cache)
                     if retvalue != 0:
@@ -144,13 +144,13 @@ def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeon
                         gitUpdate(destination)
                     else:
                         gitCheckout(url, destination)
-
                 else:
+                    doRecursion = False
                     print("Unsupported URL scheme at the moment\n")
-
-    if(recursive and os.access(destination+'/'+modules, os.R_OK)):
-        os.chdir(destination)
-        update(cache=cache, modules=modules, dest=".", buildonly=buildonly, runtimeonly=runtimeonly)
+                    
+                if(doRecursion and os.access(destination+'/'+modules, os.R_OK)):
+                    os.chdir(destination)
+                    update(cache=cache, modules=modules, dest=".", buildonly=buildonly, runtimeonly=runtimeonly)
 
     os.chdir(previousDir)
 
