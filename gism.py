@@ -21,6 +21,8 @@ def touch(path):
 hostOS = platform.system()
 rsync = ""
 git = ""
+svnoptions = "--config-option config:miscellany:use-commit-times=yes"
+
 
 def setOS():
     global hostOS, rsync, git # Mmmm
@@ -82,7 +84,7 @@ def svnCheckout(url, revision, destination, cache=""):
 
     if(not os.access(destination+"/"+".svn", os.R_OK)):
         print("svn checkout: " + url + " (rev " + revision + ") -> " + svnDestination)
-        ret = os.system("svn checkout " + url + revURL + " " + svnDestination)
+        ret = os.system("svn checkout " + svnoptions + " " + url + revURL + " " + svnDestination)
     else:
         print("svn update: " + url + " (rev " + revision + ") -> " + svnDestination)
         # ignore conflicts
@@ -90,12 +92,12 @@ def svnCheckout(url, revision, destination, cache=""):
         #ret += os.system("svn resolve --accept theirs-full -R " + svnDestination)
         #ret += os.system("svn switch " + url + revURL + " " + svnDestination)
         #ret += os.system("svn update --accept theirs-full --force " + revParam + " " + svnDestination)
-        ret += os.system("svn update " + revParam + " " + svnDestination)
+        ret += os.system("svn update " + svnoptions + " " + revParam + " " + svnDestination)
 
     if(ret != 0):
         print("Error updating SVN, will use fallback")
         os.rename(svnDestination, svnDestination + '.bak.'+datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
-        ret = os.system("svn checkout " + url + revURL + " " + svnDestination)
+        ret = os.system("svn checkout " + svnoptions + " " + url + revURL + " " + svnDestination)
 
         if(ret != 0):
             print("Fallback failed, exit")
