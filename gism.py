@@ -127,6 +127,8 @@ def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeon
 
     for line in lines:
         if not commentRE.match(line):
+            print("\n## in " + os.getcwd())
+            print("## " + "processing: " + line + " recursive=" + str(recursive) )
             platform, url, destination, revision = line.split()
             if ((hostOS in platform) or ('all' in platform)) and \
                ( \
@@ -150,9 +152,19 @@ def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeon
                     doRecursion = False
                     print("Unsupported URL scheme at the moment\n")
                     
-                if(doRecursion and os.access(destination+'/'+modules, os.R_OK)):
+                if(doRecursion):
+                    pd = os.getcwd()
                     os.chdir(destination)
-                    update(cache=cache, modules=modules, dest=".", buildonly=buildonly, runtimeonly=runtimeonly)
+                    if (os.access("bootstrap.py", os.R_OK)):
+                        print(">>> execute bootstrap.py in " + destination)
+                        os.system("python bootstrap.py")
+                        print("<<<")
+                    elif (os.access(modules, os.R_OK)):
+                        print(">>> execute modules.txt in " + destination)
+                        update(cache=cache, modules=modules, dest=".", buildonly=buildonly,
+                               runtimeonly=runtimeonly, recursive=recursive)
+                        print("<<<")
+                    os.chdir(pd)
 
     os.chdir(previousDir)
 
