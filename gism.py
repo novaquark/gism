@@ -84,10 +84,10 @@ def svnCheckout(url, revision, destination, cache=""):
         revURL = ""
 
     if(not os.access(destination+"/"+".svn", os.R_OK)):
-        print("svn checkout: " + url + " (rev " + revision + ") -> " + svnDestination)
+        print("svn checkout")
         ret = os.system("svn checkout " + svnoptions + " " + url + revURL + " " + svnDestination)
     else:
-        print("svn update: " + url + " (rev " + revision + ") -> " + svnDestination)
+        print("svn update")
         # ignore conflicts
         # FIXME: should be an option
         #ret += os.system("svn resolve --accept theirs-full -R " + svnDestination)
