@@ -4,6 +4,7 @@ import re
 import string
 import os
 import platform
+import sys
 import argparse
 import datetime
 from distutils.spawn import find_executable as which
@@ -170,6 +171,9 @@ def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeon
 
 
 if __name__ == '__main__':
+
+    # always flush stdout to make sure svn and gism output are in sync
+    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
     parser = argparse.ArgumentParser(prog=__file__)
     parser.add_argument('--cache', help='Specify a PATH to cache svn (for continous integration)')
