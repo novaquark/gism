@@ -120,6 +120,8 @@ def svnCheckout(url, revision, destination, cache=""):
 commentRE = re.compile('^#')
 svnRE = re.compile('^http://')
 gitRE = re.compile('^ssh://')
+includeRE = re.compile('^include')
+
 
 def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeonly=False, recursive=False):
     lines = [line.strip() for line in open(modules) if line.strip()]
@@ -149,6 +151,8 @@ def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeon
                         gitUpdate(destination)
                     else:
                         gitCheckout(url, destination)
+                elif includeRE.match(url):
+                    pass
                 else:
                     doRecursion = False
                     print("Unsupported URL scheme at the moment\n")
