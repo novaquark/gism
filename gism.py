@@ -7,6 +7,7 @@ import platform
 import sys
 import argparse
 import datetime
+from shutil import copyfile
 from distutils.spawn import find_executable as which
 from subprocess import check_call, call
 
@@ -123,7 +124,13 @@ gitRE = re.compile('^ssh://')
 includeRE = re.compile('^include')
 
 
-def update(cache="", modules="modules.txt", dest=".", buildonly=False, runtimeonly=False, recursive=False):
+def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False):
+
+    # test if file exist otherwise, uses template
+    if (not os.access(modules, os.R_OK)):    
+        if (os.access(template, os.R_OK)):
+            copyfile(template, modules)
+        
     lines = [line.strip() for line in open(modules) if line.strip()]
     previousDir = os.getcwd()
     os.chdir(dest)
@@ -182,6 +189,7 @@ if __name__ == '__main__':
     parser.add_argument('--modules', default="modules.txt", help='Specify a modules file')
     parser.add_argument('--dest', default=".", help='Specify a destination PATH for the whole treem')
     parser.add_argument('--recursive', help='find modules.txt recursively and update them', action='store_true')
+    parser.add_argument('--template', help='Use template file')
 
     args, unknown = parser.parse_known_args()
 
@@ -189,6 +197,8 @@ if __name__ == '__main__':
         print(__file__ + " warning, ignore unknown options: " )
         for option in unknown:
             print(option)
-
-    update(cache=args.cache, buildonly=args.buildonly, modules=args.modules, dest=args.dest, recursive=args.recursive)
+    template = "modules_template.txt"
+    if(args.template):
+        template = args.template
+    update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive)
 
