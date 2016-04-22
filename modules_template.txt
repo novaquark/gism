@@ -3,3 +3,7 @@
 # runtimeonly will not be checked out by --buildonly command line option
 # buildonly will only be checked out by --buildonly command line option
 
+all http://svn.novaquark.com/data-editor/trunk/editor editor trunk
+win http://svn.novaquark.com/releases/client/trunk client/release trunk
+all ssh://git@git.novaquark.com/dual/dual-client.git client/source trunk
+win include runtime trunk
