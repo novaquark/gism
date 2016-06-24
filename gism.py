@@ -23,8 +23,7 @@ def touch(path):
 hostOS = platform.system()
 rsync = ""
 git = ""
-svnoptions = "--config-option config:miscellany:use-commit-times=yes"
-
+svnoptions = ""
 
 def setOS():
     global hostOS, rsync, git # Mmmm
@@ -190,6 +189,7 @@ if __name__ == '__main__':
     parser.add_argument('--dest', default=".", help='Specify a destination PATH for the whole treem')
     parser.add_argument('--recursive', help='find modules.txt recursively and update them', action='store_true')
     parser.add_argument('--template', help='Use template file')
+    parser.add_argument('--useCommitTime', help="use the commit time for checkouted files", action='store_true')
 
     args, unknown = parser.parse_known_args()
 
@@ -200,5 +200,7 @@ if __name__ == '__main__':
     template = "modules_template.txt"
     if(args.template):
         template = args.template
+    if args.useCommitTime:
+        svnoptions = "--config-option config:miscellany:use-commit-times=yes"
     update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive)
 
