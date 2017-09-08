@@ -7,9 +7,10 @@ import platform
 import sys
 import argparse
 import datetime
-from shutil import copyfile
+from shutil import copyfile, rmtree
 from distutils.spawn import find_executable as which
-from subprocess import check_call, call
+from subprocess import check_output, check_call, call
+import xml.etree.ElementTree as etree
 
 #FIXME: test runtime dependancies
 #FIXME: add git support for initial checkout (no updates yes)
@@ -88,13 +89,30 @@ def svnCheckout(url, revision, destination, cache=""):
         print("svn checkout")
         ret = os.system("svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination)
     else:
-        print("svn update")
-        # ignore conflicts
-        # FIXME: should be an option
-        #ret += os.system("svn resolve --accept theirs-full -R " + svnDestination)
-        #ret += os.system("svn switch " + url + revURL + " " + svnDestination)
-        #ret += os.system("svn update --accept theirs-full --force " + revParam + " " + svnDestination)
-        ret += os.system("svn update " + svnoptions + " " + revParam + " " + svnDestination)
+        xml_str = check_output("svn info --xml " + svnDestination)
+        xml_info = etree.fromstring(xml_str)
+        xml_item = xml_info.find(".//url")
+        current_svn_url = xml_item.text
+        print("svn url: " + current_svn_url)
+        if(current_svn_url != url):
+            #SVN URL has changed, let's change the targeted svn url
+            print("SVN URL changed from " + current_svn_url + " to " + url)
+            print("svn checkout --force")
+            os.system("svn cleanup " + svnDestination)
+            def del_rw(action, name, exc):
+                import stat
+                os.chmod(name, stat.S_IWRITE)
+                os.remove(name)
+            rmtree(svnDestination +"/"+".svn", onerror=del_rw)
+            ret = os.system("svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination)
+        else:
+            print("svn update")
+            # ignore conflicts
+            # FIXME: should be an option
+            #ret += os.system("svn resolve --accept theirs-full -R " + svnDestination)
+            #ret += os.system("svn switch " + url + revURL + " " + svnDestination)
+            #ret += os.system("svn update --accept theirs-full --force " + revParam + " " + svnDestination)
+            ret += os.system("svn update " + svnoptions + " " + revParam + " " + svnDestination)
 
     if(ret != 0):
         print("Error updating SVN, will use fallback")
