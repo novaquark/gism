@@ -15,6 +15,7 @@ from subprocess import check_call, call
 #FIXME: add git support for initial checkout (no updates yes)
 #FIXME: add an svn mode to force the local copy to be an exact replica of the remote one
 
+
 def touch(path):
     with open(path, 'a'):
         os.utime(path, None)
@@ -85,7 +86,7 @@ def svnCheckout(url, revision, destination, cache=""):
 
     if(not os.access(destination+"/"+".svn", os.R_OK)):
         print("svn checkout")
-        ret = os.system("svn checkout " + svnoptions + " " + url + revURL + " " + svnDestination)
+        ret = os.system("svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination)
     else:
         print("svn update")
         # ignore conflicts
@@ -126,10 +127,10 @@ includeRE = re.compile('^include')
 def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False):
 
     # test if file exist otherwise, uses template
-    if (not os.access(modules, os.R_OK)):    
+    if (not os.access(modules, os.R_OK)):
         if (os.access(template, os.R_OK)):
             copyfile(template, modules)
-        
+
     lines = [line.strip() for line in open(modules) if line.strip()]
     previousDir = os.getcwd()
     os.chdir(dest)
@@ -162,7 +163,7 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
                 else:
                     doRecursion = False
                     print("Unsupported URL scheme at the moment\n")
-                    
+
                 if(doRecursion):
                     pd = os.getcwd()
                     os.chdir(destination)
