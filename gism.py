@@ -12,6 +12,16 @@ from distutils.spawn import find_executable as which
 from subprocess import check_output, check_call, call
 import xml.etree.ElementTree as etree
 
+class COLORS:
+    PINK = '\033[95m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    DEFAULT = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 #FIXME: test runtime dependancies
 #FIXME: add git support for initial checkout (no updates yes)
 #FIXME: add an svn mode to force the local copy to be an exact replica of the remote one
@@ -39,7 +49,7 @@ def setOS():
         rsync = "rsync"
         git = "git"
     else:
-        print("Unsupported OS")
+        print(COLORS.RED + "Unsupported OS" + COLORS.DEFAULT)
         exit(1)
 
 setOS()
@@ -66,13 +76,13 @@ def svnCheckout(url, revision, destination, cache=""):
             if not os.access(svnDestination, os.R_OK):
                 os.makedirs(svnDestination)
             if not which(rsync):
-                print("need rsync in the PATH to use the cache")
+                print(COLORS.BLUE + "Need rsync in the PATH to use the cache" + COLORS.DEFAULT)
                 exit(1)
             useCache=True
-            print("Will use cache since this is an initial checkout")
+            print(COLORS.BLUE + "Will use cache since this is an initial checkout" + COLORS.DEFAULT)
         else:
             useCache=False
-            print("Will not use cache, checkout has already been done")
+            print(COLORS.BLUE + "Will not use cache, checkout has already been done" + COLORS.DEFAULT)
 
     #cleanup in case the previous run failed
     os.system("svn cleanup " + svnDestination)
@@ -115,12 +125,12 @@ def svnCheckout(url, revision, destination, cache=""):
             ret += os.system("svn update " + svnoptions + " " + revParam + " " + svnDestination)
 
     if(ret != 0):
-        print("Error updating SVN, will use fallback")
+        print(COLORS.RED + "Error updating SVN, will use fallback" + COLORS.DEFAULT)
         os.rename(svnDestination, svnDestination + '.bak.'+datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
         ret = os.system("svn checkout " + svnoptions + " " + url + revURL + " " + svnDestination)
 
         if(ret != 0):
-            print("Fallback failed, exit")
+            print(COLORS.RED + "Fallback failed, exit" + COLORS.DEFAULT)
             exit(1)
 
     if useCache:
@@ -156,7 +166,7 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
     for line in lines:
         if not commentRE.match(line):
             print("\n## in " + os.getcwd())
-            print("## " + "processing: " + line + " recursive=" + str(recursive) )
+            print("## " + "processing: " + COLORS.GREEN + line + COLORS.DEFAULT + " recursive=" + str(recursive))
             platform, url, destination, revision = line.split()
             if ((hostOS in platform) or ('all' in platform)) and \
                ( \
@@ -169,7 +179,7 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
                 if svnRE.match(url):
                     retvalue = svnCheckout(url, revision, destination, cache)
                     if retvalue != 0:
-                        print("to login on SVN ask sysadmin for login and password\n")
+                        print(COLORS.RED + "to login on SVN ask sysadmin for login and password" + COLORS.DEFAULT)
                         exit(retvalue)
                 elif gitRE.match(url):
                     if os.access(destination+"/.git", os.R_OK):
@@ -180,7 +190,7 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
                     pass
                 else:
                     doRecursion = False
-                    print("Unsupported URL scheme at the moment\n")
+                    print(COLORS.RED + "Unsupported URL scheme at the moment" + COLORS.DEFAULT)
 
                 if(doRecursion):
                     pd = os.getcwd()
