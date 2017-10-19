@@ -99,12 +99,12 @@ def svnCheckout(url, revision, destination, cache=""):
         print("svn checkout")
         ret = os.system("svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination)
     else:
-        xml_str = check_output("svn info --xml " + svnDestination)
+        xml_str = check_output(["svn", "info", "--xml", svnDestination])
         xml_info = etree.fromstring(xml_str)
         xml_item = xml_info.find(".//url")
         current_svn_url = xml_item.text
         print("svn url: " + current_svn_url)
-        if(current_svn_url != url):
+        if(current_svn_url.rstrip('/') != url.rstrip('/')):
             #SVN URL has changed, let's change the targeted svn url
             print("SVN URL changed from " + current_svn_url + " to " + url)
             print("svn checkout --force")
