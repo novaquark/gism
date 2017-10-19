@@ -22,6 +22,16 @@ class COLORS:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+    def doNotUseColors():
+        COLORS.PINK = ''
+        COLORS.BLUE = ''
+        COLORS.GREEN = ''
+        COLORS.YELLOW = ''
+        COLORS.RED = ''
+        COLORS.DEFAULT = ''
+        COLORS.BOLD = ''
+        COLORS.UNDERLINE = ''
+
 #FIXME: test runtime dependancies
 #FIXME: add git support for initial checkout (no updates yes)
 #FIXME: add an svn mode to force the local copy to be an exact replica of the remote one
@@ -218,7 +228,8 @@ if __name__ == '__main__':
     parser.add_argument('--dest', default=".", help='Specify a destination PATH for the whole treem')
     parser.add_argument('--recursive', help='find modules.txt recursively and update them', action='store_true')
     parser.add_argument('--template', help='Use template file')
-    parser.add_argument('--useCommitTime', help="use the commit time for checkouted files", action='store_true')
+    parser.add_argument('--useCommitTime', help="Use the commit time for checkouted files", action='store_true')
+    parser.add_argument('--nocolor', help="Do not use colored display", action='store_true')
 
     args, unknown = parser.parse_known_args()
 
@@ -226,6 +237,8 @@ if __name__ == '__main__':
         print(__file__ + " warning, ignore unknown options: " )
         for option in unknown:
             print(option)
+    if(args.nocolor):
+        COLORS.doNotUseColors()
     template = "modules_template.txt"
     if(args.template):
         template = args.template
