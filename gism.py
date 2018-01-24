@@ -9,7 +9,7 @@ import argparse
 import datetime
 from shutil import copyfile, rmtree
 from distutils.spawn import find_executable as which
-from subprocess import check_output, check_call, call
+from subprocess import check_output, check_call
 import xml.etree.ElementTree as etree
 
 class COLORS:
@@ -32,14 +32,19 @@ class COLORS:
         COLORS.BOLD = ''
         COLORS.UNDERLINE = ''
 
-#FIXME: test runtime dependancies
+#FIXME: test runtime dependencies
 #FIXME: add git support for initial checkout (no updates yes)
-#FIXME: add an svn mode to force the local copy to be an exact replica of the remote one
 
+def uprint(line):
+    print(line)
+    sys.stdout.flush()
 
-def touch(path):
-    with open(path, 'a'):
-        os.utime(path, None)
+def runDisplayCommand(cmd, use_check_call=False):
+    uprint(COLORS.YELLOW + cmd + COLORS.DEFAULT)
+    if use_check_call:
+        return check_call(cmd)
+    else:
+        return os.system(cmd)
 
 
 hostOS = platform.system()
@@ -49,7 +54,7 @@ svnoptions = ""
 
 def setOS():
     global hostOS, rsync, git # Mmmm
-    print("Detected " + hostOS + " os")
+    uprint("Detected " + hostOS + " os")
     if hostOS == "Windows" or re.match("CYGWIN_NT", hostOS):
         hostOS = "win"
         rsync = "rsync.exe"
@@ -59,21 +64,33 @@ def setOS():
         rsync = "rsync"
         git = "git"
     else:
-        print(COLORS.RED + "Unsupported OS" + COLORS.DEFAULT)
+        uprint(COLORS.RED + "Unsupported OS" + COLORS.DEFAULT)
         exit(1)
 
 setOS()
 
 def gitCheckout(url, destination):
-    check_call([git, 'clone', url, destination])
+    runDisplayCommand('git clone {} {}'.format(url, destination), True)
     gitUpdate(destination)
 
 def gitUpdate(path):
     pwd = os.getcwd()
     os.chdir(path)
-    call([git, 'pull'])
-    check_call([git, 'submodule', 'update', '--init', '--recursive'])
+    runDisplayCommand('git fetch')
+    runDisplayCommand('git pull --rebase')
+    runDisplayCommand('git submodule update --init --recursive', True)
     os.chdir(pwd)
+
+def uprint(line):
+    print(line)
+    sys.stdout.flush()
+
+def runDisplayCommand(cmd, use_check_call=False):
+    uprint(COLORS.YELLOW + cmd + COLORS.DEFAULT)
+    if use_check_call:
+        return check_call(cmd)
+    else:
+        return os.system(cmd)
 
 def svnCheckout(url, revision, destination, cache=""):
     """ The cache system improves performance of initial branch builds on continuous integration"""
@@ -86,16 +103,16 @@ def svnCheckout(url, revision, destination, cache=""):
             if not os.access(svnDestination, os.R_OK):
                 os.makedirs(svnDestination)
             if not which(rsync):
-                print(COLORS.BLUE + "Need rsync in the PATH to use the cache" + COLORS.DEFAULT)
+                uprint(COLORS.BLUE + "Need rsync in the PATH to use the cache" + COLORS.DEFAULT)
                 exit(1)
             useCache=True
-            print(COLORS.BLUE + "Will use cache since this is an initial checkout" + COLORS.DEFAULT)
+            uprint(COLORS.BLUE + "Will use cache since this is an initial checkout" + COLORS.DEFAULT)
         else:
             useCache=False
-            print(COLORS.BLUE + "Will not use cache, checkout has already been done" + COLORS.DEFAULT)
+            uprint(COLORS.BLUE + "Will not use cache, checkout has already been done" + COLORS.DEFAULT)
 
     #cleanup in case the previous run failed
-    os.system("svn cleanup " + svnDestination)
+    runDisplayCommand("svn cleanup " + svnDestination)
 
     # checkout to the final dest or to the cache
     if revision != "trunk":
@@ -106,45 +123,44 @@ def svnCheckout(url, revision, destination, cache=""):
         revURL = ""
 
     if(not os.access(destination+"/"+".svn", os.R_OK)):
-        print("svn checkout")
-        ret = os.system("svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination)
+        ret = runDisplayCommand("svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination)
     else:
         xml_str = check_output(["svn", "info", "--xml", svnDestination])
         xml_info = etree.fromstring(xml_str)
         xml_item = xml_info.find(".//url")
         current_svn_url = xml_item.text
-        print("svn url: " + current_svn_url)
+        uprint("svn url: " + current_svn_url)
         if(current_svn_url.rstrip('/') != url.rstrip('/')):
             #SVN URL has changed, let's change the targeted svn url
-            print("SVN URL changed from " + current_svn_url + " to " + url)
-            print("svn checkout --force")
-            os.system("svn cleanup " + svnDestination)
+            uprint("SVN URL changed from " + current_svn_url + " to " + url)
+            uprint("svn checkout --force")
+            runDisplayCommand("svn cleanup " + svnDestination)
             def del_rw(action, name, exc):
                 import stat
                 os.chmod(name, stat.S_IWRITE)
                 os.remove(name)
             rmtree(svnDestination +"/"+".svn", onerror=del_rw)
-            ret = os.system("svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination)
+            ret = runDisplayCommand("svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination)
         else:
-            print("svn update")
+            uprint("svn update")
             # ignore conflicts
             # FIXME: should be an option
             #ret += os.system("svn resolve --accept theirs-full -R " + svnDestination)
             #ret += os.system("svn switch " + url + revURL + " " + svnDestination)
             #ret += os.system("svn update --accept theirs-full --force " + revParam + " " + svnDestination)
-            ret += os.system("svn update " + svnoptions + " " + revParam + " " + svnDestination)
+            ret += runDisplayCommand("svn update " + svnoptions + " " + revParam + " " + svnDestination)
 
     if(ret != 0):
-        print(COLORS.RED + "Error updating SVN, will use fallback" + COLORS.DEFAULT)
+        uprint(COLORS.RED + "Error updating SVN, will use fallback" + COLORS.DEFAULT)
         os.rename(svnDestination, svnDestination + '.bak.'+datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
-        ret = os.system("svn checkout " + svnoptions + " " + url + revURL + " " + svnDestination)
+        ret = runDisplayCommand("svn checkout " + svnoptions + " " + url + revURL + " " + svnDestination)
 
         if(ret != 0):
-            print(COLORS.RED + "Fallback failed, exit" + COLORS.DEFAULT)
+            uprint(COLORS.RED + "Fallback failed, exit" + COLORS.DEFAULT)
             exit(1)
 
     if useCache:
-        print("Copy the cache to the final destination")
+        uprint("Copy the cache to the final destination")
         if not os.access(destination, os.R_OK):
             os.makedirs(destination)
         if hostOS == "win":
@@ -152,8 +168,7 @@ def svnCheckout(url, revision, destination, cache=""):
                       re.sub(r"[\/\\ ]+","/",re.sub("([A-Za-z]):","/cygdrive/\\1",svnDestination)) + "/\" " + destination + "/"
         else:
             command = "cp -al " + svnDestination + " " + destination
-        print("execute " + command)
-        ret += os.system(command)
+        ret += runDisplayCommand(command)
     return ret
 
 commentRE = re.compile('^#')
@@ -175,8 +190,8 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
 
     for line in lines:
         if not commentRE.match(line):
-            print("\n## in " + os.getcwd())
-            print("## " + "processing: " + COLORS.GREEN + line + COLORS.DEFAULT + " recursive=" + str(recursive))
+            uprint("\n## in " + os.getcwd())
+            uprint("## " + "processing: " + COLORS.GREEN + line + COLORS.DEFAULT + " recursive=" + str(recursive))
             platform, url, destination, revision = line.split()
             if ((hostOS in platform) or ('all' in platform)) and \
                ( \
@@ -189,7 +204,7 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
                 if svnRE.match(url):
                     retvalue = svnCheckout(url, revision, destination, cache)
                     if retvalue != 0:
-                        print(COLORS.RED + "to login on SVN ask sysadmin for login and password" + COLORS.DEFAULT)
+                        uprint(COLORS.RED + "to login on SVN ask sysadmin for login and password" + COLORS.DEFAULT)
                         exit(retvalue)
                 elif gitRE.match(url):
                     if os.access(destination+"/.git", os.R_OK):
@@ -200,20 +215,20 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
                     pass
                 else:
                     doRecursion = False
-                    print(COLORS.RED + "Unsupported URL scheme at the moment" + COLORS.DEFAULT)
+                    uprint(COLORS.RED + "Unsupported URL scheme at the moment" + COLORS.DEFAULT)
 
                 if(doRecursion):
                     pd = os.getcwd()
                     os.chdir(destination)
                     if (os.access("bootstrap.py", os.R_OK)):
-                        print(">>> execute bootstrap.py in " + destination)
-                        os.system("python bootstrap.py")
-                        print("<<<")
+                        uprint(">>> execute bootstrap.py in " + destination)
+                        runDisplayCommand("python bootstrap.py")
+                        uprint("<<<")
                     elif (os.access(modules, os.R_OK)):
-                        print(">>> execute modules.txt in " + destination)
+                        uprint(">>> execute modules.txt in " + destination)
                         update(cache=cache, modules=modules, dest=".", buildonly=buildonly,
                                runtimeonly=runtimeonly, recursive=recursive)
-                        print("<<<")
+                        uprint("<<<")
                     os.chdir(pd)
 
     os.chdir(previousDir)
@@ -234,9 +249,9 @@ if __name__ == '__main__':
     args, unknown = parser.parse_known_args()
 
     if unknown:
-        print(__file__ + " warning, ignore unknown options: " )
+        uprint(__file__ + " warning, ignore unknown options: " )
         for option in unknown:
-            print(option)
+            uprint(option)
     if(args.nocolor):
         COLORS.doNotUseColors()
     template = "modules_template.txt"
