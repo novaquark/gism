@@ -73,12 +73,15 @@ def gitCheckout(url, destination):
     runDisplayCommand('git clone {} {}'.format(url, destination), True)
     gitUpdate(destination)
 
-def gitUpdate(path):
+def gitUpdate(path, reset=False):
     pwd = os.getcwd()
     os.chdir(path)
     runDisplayCommand('git fetch')
-    runDisplayCommand('git pull --rebase')
-    runDisplayCommand('git submodule update --init --recursive', True)
+    if reset:
+        runDisplayCommand('git reset --hard origin', True)
+    else:
+        runDisplayCommand('git pull --rebase')
+        runDisplayCommand('git submodule update --init --recursive', True)
     os.chdir(pwd)
 
 def uprint(line):
@@ -92,7 +95,22 @@ def runDisplayCommand(cmd, use_check_call=False):
     else:
         return os.system(cmd)
 
-def svnCheckout(url, revision, destination, cache=""):
+def svnUpdateForce(path="", revParam="", svnOptions=""):
+    if path != "":
+         path = " " +  path
+    if revParam != "":
+        revParam = " " + revParam
+    if svnOptions != "":
+        svnOptions = " " + svnOptions
+    runDisplayCommand("svn cleanup" + path)
+    svn_update_cmd = "svn update --force --accept mine-full" + revParam + svnOptions + path
+    if(runDisplayCommand(svn_update_cmd) != 0):
+        if(runDisplayCommand("svn resolve --accept mine-full -R" +  path) != 0):
+            runDisplayCommand("svn resolve --accept working -R" +  path)
+        return runDisplayCommand(svn_update_cmd)
+    return 0
+
+def svnCheckout(url, revision, destination, cache="", reset=False):
     """ The cache system improves performance of initial branch builds on continuous integration"""
     svnDestination = destination
     ret = 0
@@ -122,8 +140,9 @@ def svnCheckout(url, revision, destination, cache=""):
         revParam = ""
         revURL = ""
 
+    svn_checkout_cmd = "svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination
     if(not os.access(destination+"/"+".svn", os.R_OK)):
-        ret = runDisplayCommand("svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination)
+        ret = runDisplayCommand(svn_checkout_cmd)
     else:
         xml_str = check_output(["svn", "info", "--xml", svnDestination])
         xml_info = etree.fromstring(xml_str)
@@ -140,15 +159,11 @@ def svnCheckout(url, revision, destination, cache=""):
                 os.chmod(name, stat.S_IWRITE)
                 os.remove(name)
             rmtree(svnDestination +"/"+".svn", onerror=del_rw)
-            ret = runDisplayCommand("svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination)
+            ret = runDisplayCommand(svn_checkout_cmd)
         else:
-            uprint("svn update")
-            # ignore conflicts
-            # FIXME: should be an option
-            #ret += os.system("svn resolve --accept theirs-full -R " + svnDestination)
-            #ret += os.system("svn switch " + url + revURL + " " + svnDestination)
-            #ret += os.system("svn update --accept theirs-full --force " + revParam + " " + svnDestination)
-            ret += runDisplayCommand("svn update " + svnoptions + " " + revParam + " " + svnDestination)
+            ret = svnUpdateForce(svnDestination, revParam, svnoptions)
+            if reset:
+                ret = runDisplayCommand("svn revert -R " + svnDestination)
 
     if(ret != 0):
         uprint(COLORS.RED + "Error updating SVN, will use fallback" + COLORS.DEFAULT)
@@ -177,7 +192,7 @@ gitRE = re.compile('^ssh://')
 includeRE = re.compile('^include')
 
 
-def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False):
+def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False, reset=False):
 
     # test if file exist otherwise, uses template
     if (not os.access(modules, os.R_OK)):
@@ -202,13 +217,13 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
                 revision = revision.strip()
                 doRecursion = recursive
                 if svnRE.match(url):
-                    retvalue = svnCheckout(url, revision, destination, cache)
+                    retvalue = svnCheckout(url, revision, destination, cache, reset)
                     if retvalue != 0:
                         uprint(COLORS.RED + "to login on SVN ask sysadmin for login and password" + COLORS.DEFAULT)
                         exit(retvalue)
                 elif gitRE.match(url):
                     if os.access(destination+"/.git", os.R_OK):
-                        gitUpdate(destination)
+                        gitUpdate(destination, reset)
                     else:
                         gitCheckout(url, destination)
                 elif includeRE.match(url):
@@ -245,6 +260,7 @@ if __name__ == '__main__':
     parser.add_argument('--template', help='Use template file')
     parser.add_argument('--useCommitTime', help="Use the commit time for checkouted files", action='store_true')
     parser.add_argument('--nocolor', help="Do not use colored display", action='store_true')
+    parser.add_argument('--reset', help="Do revert modules to their initial state", action='store_true')
 
     args, unknown = parser.parse_known_args()
 
@@ -259,5 +275,5 @@ if __name__ == '__main__':
         template = args.template
     if args.useCommitTime:
         svnoptions = "--config-option config:miscellany:use-commit-times=yes"
-    update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive)
+    update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive, reset=args.reset)
 
