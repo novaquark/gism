@@ -10,6 +10,11 @@ import datetime
 from shutil import copyfile, rmtree
 from distutils.spawn import find_executable as which
 from subprocess import check_output, check_call
+try:
+    from urllib.request import urlopen
+    from urllib.error import HTTPError
+except ImportError:
+    from urllib2 import urlopen, HTTPError
 import xml.etree.ElementTree as etree
 
 class COLORS:
@@ -54,7 +59,6 @@ svnoptions = ""
 
 def setOS():
     global hostOS, rsync, git # Mmmm
-    uprint("Detected " + hostOS + " os")
     if hostOS == "Windows" or re.match("CYGWIN_NT", hostOS):
         hostOS = "win"
         rsync = "rsync.exe"
@@ -69,20 +73,31 @@ def setOS():
 
 setOS()
 
+def check_url_access(url):
+    try:
+        urlopen(url, timeout=1)
+    except HTTPError:
+        pass
+    except:
+        return False
+    return True
+
 def gitCheckout(url, destination):
-    runDisplayCommand('git clone {} {}'.format(url, destination), True)
-    gitUpdate(destination)
+    ret = runDisplayCommand('git clone {} {}'.format(url, destination), True)
+    ret += gitUpdate(destination)
+    return ret
 
 def gitUpdate(path, reset=False):
     pwd = os.getcwd()
     os.chdir(path)
     runDisplayCommand('git fetch')
     if reset:
-        runDisplayCommand('git reset --hard origin', True)
+        ret = runDisplayCommand('git reset --hard origin', True)
     else:
-        runDisplayCommand('git pull --rebase')
-        runDisplayCommand('git submodule update --init --recursive', True)
+        ret = runDisplayCommand('git pull --rebase')
+        ret += runDisplayCommand('git submodule update --init --recursive', True)
     os.chdir(pwd)
+    return ret
 
 def uprint(line):
     print(line)
@@ -104,8 +119,8 @@ def svnUpdateForce(path="", revParam="", svnOptions=""):
         svnOptions = " " + svnOptions
     runDisplayCommand("svn cleanup" + path)
     svn_update_cmd = "svn update --force --accept mine-full" + revParam + svnOptions + path
-    if(runDisplayCommand(svn_update_cmd) != 0):
-        if(runDisplayCommand("svn resolve --accept mine-full -R" +  path) != 0):
+    if runDisplayCommand(svn_update_cmd) != 0:
+        if runDisplayCommand("svn resolve --accept mine-full -R" +  path) != 0:
             runDisplayCommand("svn resolve --accept working -R" +  path)
         return runDisplayCommand(svn_update_cmd)
     return 0
@@ -116,7 +131,7 @@ def svnCheckout(url, revision, destination, cache="", reset=False):
     ret = 0
     useCache=False
     if cache:
-        if(not os.access(destination+"/"+".svn", os.R_OK)):
+        if not os.access(destination+"/"+".svn", os.R_OK):
             svnDestination = cache + "/" + re.sub("[.][.]/","/", destination)
             if not os.access(svnDestination, os.R_OK):
                 os.makedirs(svnDestination)
@@ -142,7 +157,7 @@ def svnCheckout(url, revision, destination, cache="", reset=False):
         revURL = ""
 
     svn_checkout_cmd = "svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination
-    if(not os.access(destination+"/"+".svn", os.R_OK)):
+    if not os.access(destination+"/"+".svn", os.R_OK):
         ret = runDisplayCommand(svn_checkout_cmd)
     else:
         xml_str = check_output(["svn", "info", "--xml", svnDestination])
@@ -167,14 +182,14 @@ def svnCheckout(url, revision, destination, cache="", reset=False):
             if reset:
                 ret = runDisplayCommand("svn revert -R " + svnDestination)
 
-    if(ret != 0):
+    if ret != 0:
         uprint(COLORS.RED + "Error updating SVN, will use fallback" + COLORS.DEFAULT)
         os.rename(svnDestination, svnDestination + '.bak.'+datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
         ret = runDisplayCommand("svn checkout " + svnoptions + " " + url + revURL + " " + svnDestination)
 
-        if(ret != 0):
-            uprint(COLORS.RED + "Fallback failed, exit" + COLORS.DEFAULT)
-            exit(1)
+        if ret != 0:
+            uprint(COLORS.RED + "Fallback failed, stopping gism update" + COLORS.DEFAULT)
+            return 1
 
     if useCache:
         uprint("Copy the cache to the final destination")
@@ -195,7 +210,7 @@ includeRE = re.compile('^include')
 
 
 def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False, reset=False):
-
+    ret = 0
     # test if file exist otherwise, uses template
     if (not os.access(modules, os.R_OK)):
         if (os.access(template, os.R_OK)):
@@ -206,49 +221,54 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
     os.chdir(dest)
 
     for line in lines:
-        if not commentRE.match(line):
-            uprint("\n## in " + os.getcwd())
-            uprint("## " + "processing: " + COLORS.GREEN + line + COLORS.DEFAULT + " recursive=" + str(recursive))
-            platform, url, destination, revision = line.split()
-            if ((hostOS in platform) or ('all' in platform)) and \
-               ( \
-                ((not buildonly) and (not 'buildonly' in platform)) \
-                or \
-                ((buildonly ) and (not 'runtimeonly' in platform)) \
-               ):
-                revision = revision.strip()
-                doRecursion = recursive
-                if svnRE.match(url):
+        if commentRE.match(line):
+            continue
+        uprint("\n## in " + os.getcwd())
+        uprint("## " + "processing: " + COLORS.GREEN + line + COLORS.DEFAULT + " recursive=" + str(recursive))
+        platform, url, destination, revision = line.split()
+        if ((hostOS in platform) or ('all' in platform)) \
+                and (((not buildonly) and (not 'buildonly' in platform)) \
+                    or ((buildonly ) and (not 'runtimeonly' in platform))):
+            revision = revision.strip()
+            doRecursion = recursive
+            if svnRE.match(url):
+                if check_url_access(url):
                     retvalue = svnCheckout(url, revision, destination, cache, reset)
                     if retvalue != 0:
                         uprint(COLORS.RED + "to login on SVN ask sysadmin for login and password" + COLORS.DEFAULT)
-                        exit(retvalue)
-                elif gitRE.match(url):
-                    if os.access(destination+"/.git", os.R_OK):
-                        gitUpdate(destination, reset)
-                    else:
-                        gitCheckout(url, destination)
-                elif includeRE.match(url):
-                    pass
+                        return retvalue
+                    ret += retvalue
                 else:
-                    doRecursion = False
-                    uprint(COLORS.RED + "Unsupported URL scheme at the moment" + COLORS.DEFAULT)
+                    ret += 1
+            elif gitRE.match(url):
+                if check_url_access(url):
+                    if os.access(destination+"/.git", os.R_OK):
+                        ret += gitUpdate(destination, reset)
+                    else:
+                        ret += gitCheckout(url, destination)
+                else:
+                    ret += 1
+            elif includeRE.match(url):
+                pass
+            else:
+                doRecursion = False
+                uprint(COLORS.RED + "Unsupported URL scheme at the moment" + COLORS.DEFAULT)
 
-                if(doRecursion):
-                    pd = os.getcwd()
-                    os.chdir(destination)
-                    if (os.access("bootstrap.py", os.R_OK)):
-                        uprint(">>> execute bootstrap.py in " + destination)
-                        runDisplayCommand("python bootstrap.py")
-                        uprint("<<<")
-                    elif (os.access(modules, os.R_OK)):
-                        uprint(">>> execute modules.txt in " + destination)
-                        update(cache=cache, modules=modules, dest=".", buildonly=buildonly,
-                               runtimeonly=runtimeonly, recursive=recursive)
-                        uprint("<<<")
-                    os.chdir(pd)
-
+            if(doRecursion):
+                pwd = os.getcwd()
+                os.chdir(destination)
+                if (os.access("bootstrap.py", os.R_OK)):
+                    uprint(COLORS.PINK + ">>> execute bootstrap.py in " + destination + COLORS.DEFAULT)
+                    ret += runDisplayCommand("python bootstrap.py")
+                    uprint(COLORS.PINK + "<<<" + COLORS.DEFAULT)
+                elif (os.access(modules, os.R_OK)):
+                    uprint(COLORS.PINK + ">>> execute modules.txt in " + destination + COLORS.DEFAULT)
+                    ret += update(cache=cache, modules=modules, dest=".", buildonly=buildonly,
+                                 runtimeonly=runtimeonly, recursive=recursive)
+                    uprint(COLORS.PINK + "<<<" + COLORS.DEFAULT)
+                os.chdir(pwd)
     os.chdir(previousDir)
+    return ret
 
 
 if __name__ == '__main__':
@@ -277,5 +297,4 @@ if __name__ == '__main__':
         template = args.template
     if args.useCommitTime:
         svnoptions = "--config-option config:miscellany:use-commit-times=yes"
-    update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive, reset=args.reset)
-
+    exit(update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive, reset=args.reset))
