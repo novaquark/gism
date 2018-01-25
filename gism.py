@@ -27,15 +27,15 @@ class COLORS:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-    def doNotUseColors():
-        COLORS.PINK = ''
-        COLORS.BLUE = ''
-        COLORS.GREEN = ''
-        COLORS.YELLOW = ''
-        COLORS.RED = ''
-        COLORS.DEFAULT = ''
-        COLORS.BOLD = ''
-        COLORS.UNDERLINE = ''
+def doNotUseColors():
+    COLORS.PINK = ''
+    COLORS.BLUE = ''
+    COLORS.GREEN = ''
+    COLORS.YELLOW = ''
+    COLORS.RED = ''
+    COLORS.DEFAULT = ''
+    COLORS.BOLD = ''
+    COLORS.UNDERLINE = ''
 
 #FIXME: test runtime dependencies
 #FIXME: add git support for initial checkout (no updates yes)
@@ -291,7 +291,7 @@ if __name__ == '__main__':
         for option in unknown:
             uprint(option)
     if(args.nocolor):
-        COLORS.doNotUseColors()
+        doNotUseColors()
     template = "modules_template.txt"
     if(args.template):
         template = args.template
