@@ -130,7 +130,8 @@ def svnCheckout(url, revision, destination, cache="", reset=False):
             uprint(COLORS.BLUE + "Will not use cache, checkout has already been done" + COLORS.DEFAULT)
 
     #cleanup in case the previous run failed
-    runDisplayCommand("svn cleanup " + svnDestination)
+    if os.path.exists(svnDestination):
+        runDisplayCommand("svn cleanup " + svnDestination)
 
     # checkout to the final dest or to the cache
     if revision != "trunk":
@@ -153,7 +154,8 @@ def svnCheckout(url, revision, destination, cache="", reset=False):
             #SVN URL has changed, let's change the targeted svn url
             uprint("SVN URL changed from " + current_svn_url + " to " + url)
             uprint("svn checkout --force")
-            runDisplayCommand("svn cleanup " + svnDestination)
+            if os.path.exists(svnDestination):
+                runDisplayCommand("svn cleanup " + svnDestination)
             def del_rw(action, name, exc):
                 import stat
                 os.chmod(name, stat.S_IWRITE)
