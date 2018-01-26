@@ -1,12 +1,13 @@
 #!/usr/bin/python -u
 
-import re
-import string
-import os
-import platform
-import sys
 import argparse
 import datetime
+import json
+import os
+import platform
+import re
+import string
+import sys
 from shutil import copyfile, rmtree
 from distutils.spawn import find_executable as which
 from subprocess import check_output, check_call
@@ -209,7 +210,7 @@ gitRE = re.compile('^ssh://')
 includeRE = re.compile('^include')
 
 
-def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False, reset=False):
+def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False, reset=False, variables={}):
     ret = 0
     # test if file exist otherwise, uses template
     if (not os.access(modules, os.R_OK)):
@@ -225,6 +226,11 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
             continue
         uprint("\n## in " + os.getcwd())
         uprint("## " + "processing: " + COLORS.GREEN + line + COLORS.DEFAULT + " recursive=" + str(recursive))
+        for key in variables:
+            newline = line.replace("${" + key + "}", variables[key])
+            if newline != line:
+                uprint("replaced: ${" + key + "} by " + variables[key])
+                line = newline
         platform, url, destination, revision = line.split()
         if ((hostOS in platform) or ('all' in platform)) \
                 and (((not buildonly) and (not 'buildonly' in platform)) \
@@ -272,7 +278,6 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(prog=__file__)
     parser.add_argument('--cache', help='Specify a PATH to cache svn (for continous integration)')
     parser.add_argument('--buildonly', help='Do not checkout runtime only dependencies', action='store_true')
@@ -283,6 +288,7 @@ if __name__ == '__main__':
     parser.add_argument('--useCommitTime', help="Use the commit time for checkouted files", action='store_true')
     parser.add_argument('--nocolor', help="Do not use colored display", action='store_true')
     parser.add_argument('--reset', help="Do revert modules to their initial state", action='store_true')
+    parser.add_argument('--variables', help="Specify variables in JSON format. They will be used in modules.txt as ${Variable}")
 
     args, unknown = parser.parse_known_args()
 
@@ -299,4 +305,11 @@ if __name__ == '__main__':
         template = args.template
     if args.useCommitTime:
         svnoptions = "--config-option config:miscellany:use-commit-times=yes"
-    exit(update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive, reset=args.reset))
+    variables={}
+    if args.variables:
+        try:
+            variables = json.loads(args.variables)
+        except Exception as e:
+            print("Could not parse given variables. Please use JSON format (ex.: '{\"myvar\": \"myval\"}')")
+            sys.exit(2)
+    sys.exit(update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive, reset=args.reset, variables=variables))
