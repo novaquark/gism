@@ -287,13 +287,15 @@ if __name__ == '__main__':
     args, unknown = parser.parse_known_args()
 
     if unknown:
-        uprint(__file__ + " warning, ignore unknown options: " )
+        uprint("*** Error: " + os.path.basename(__file__) + " has no option: " )
         for option in unknown:
             uprint(option)
-    if(args.nocolor):
+        sys.exit(1)
+
+    if args.nocolor:
         doNotUseColors()
     template = "modules_template.txt"
-    if(args.template):
+    if args.template:
         template = args.template
     if args.useCommitTime:
         svnoptions = "--config-option config:miscellany:use-commit-times=yes"
