@@ -221,6 +221,9 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
     if (not os.access(modules, os.R_OK)):
         if (os.access(template, os.R_OK)):
             copyfile(template, modules)
+        else:
+            print("\n*** Error: could not open '{}'".format(modules))
+            sys.exit(2)
 
     lines = [line.strip() for line in open(modules) if line.strip()]
     previousDir = os.getcwd()
