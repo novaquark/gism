@@ -169,7 +169,6 @@ def svnCheckout(url, revision, destination, cache="", reset=False):
         if(current_svn_url.rstrip('/') != url.rstrip('/')):
             #SVN URL has changed, let's change the targeted svn url
             uprint("SVN URL changed from " + current_svn_url + " to " + url)
-            uprint("svn checkout --force")
             if os.path.exists(svnDestination):
                 runDisplayCommand("svn cleanup " + svnDestination)
             def del_rw(action, name, exc):
@@ -184,12 +183,19 @@ def svnCheckout(url, revision, destination, cache="", reset=False):
                 ret = runDisplayCommand("svn revert -R " + svnDestination)
 
     if ret != 0:
-        uprint(COLORS.RED + "Error updating SVN, will use fallback" + COLORS.DEFAULT)
-        os.rename(svnDestination, svnDestination + '.bak.'+datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
-        ret = runDisplayCommand("svn checkout " + svnoptions + " " + url + revURL + " " + svnDestination)
-
+        uprint(COLORS.RED + "Error updating from SVN, will try using rename fallback" + COLORS.DEFAULT)
+        new_dirname = svnDestination + '.bak.'+datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        try:
+            os.rename(svnDestination, new_dirname)
+        except:
+            pass
+        ret = runDisplayCommand(svn_checkout_cmd)
         if ret != 0:
-            uprint(COLORS.RED + "Fallback failed, stopping gism update" + COLORS.DEFAULT)
+            try:
+                os.rename(new_dirname, svnDestination)
+            except:
+                pass
+            uprint(COLORS.RED + "Fallback failed, stopping gism update for: " + destination + COLORS.DEFAULT)
             return 1
 
     if useCache:
