@@ -210,8 +210,13 @@ gitRE = re.compile('^ssh://')
 includeRE = re.compile('^include')
 
 
-def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False, reset=False, variables={}):
+def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False, reset=False, variables={}, svnparameters=None):
+    global svnoptions
     ret = 0
+
+    if svnparameters:
+        svnoptions += " " + svnparameters
+
     # test if file exist otherwise, uses template
     if (not os.access(modules, os.R_OK)):
         if (os.access(template, os.R_OK)):
@@ -289,6 +294,7 @@ if __name__ == '__main__':
     parser.add_argument('--nocolor', help="Do not use colored display", action='store_true')
     parser.add_argument('--reset', help="Do revert modules to their initial state", action='store_true')
     parser.add_argument('--variables', help="Specify variables in JSON format. They will be used in modules.txt as ${Variable}")
+    parser.add_argument('--svnparameters', help="Allows to add parameters to svn checkout/update commands, for instance: --svnparameters=\"--username=...")
 
     args, unknown = parser.parse_known_args()
 
@@ -312,4 +318,4 @@ if __name__ == '__main__':
         except Exception as e:
             print("Could not parse given variables. Please use JSON format (ex.: '{\"myvar\": \"myval\"}')")
             sys.exit(2)
-    sys.exit(update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive, reset=args.reset, variables=variables))
+    sys.exit(update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive, reset=args.reset, variables=variables, svnparameters=args.svnparameters))
