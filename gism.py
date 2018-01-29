@@ -179,8 +179,8 @@ def svnCheckout(url, revision, destination, cache="", reset=False):
             ret = runDisplayCommand(svn_checkout_cmd)
         else:
             ret = svnUpdateForce(svnDestination, revParam, svnoptions)
-            if reset:
-                ret = runDisplayCommand("svn revert -R " + svnDestination)
+    if reset:
+        ret = runDisplayCommand("svn revert -R " + svnDestination)
 
     if ret != 0:
         uprint(COLORS.RED + "Error updating from SVN, will try using rename fallback" + COLORS.DEFAULT)
