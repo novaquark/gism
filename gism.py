@@ -56,7 +56,7 @@ def runDisplayCommand(cmd, use_check_call=False):
 hostOS = platform.system()
 rsync = ""
 git = ""
-svnoptions = ""
+svnoptions = "--no-auth-cache"
 
 def setOS():
     global hostOS, rsync, git # Mmmm
@@ -319,7 +319,7 @@ if __name__ == '__main__':
     if args.template:
         template = args.template
     if args.useCommitTime:
-        svnoptions = "--config-option config:miscellany:use-commit-times=yes"
+        svnoptions += " --config-option config:miscellany:use-commit-times=yes"
     variables={}
     if args.variables:
         try:
