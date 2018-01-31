@@ -1,3 +1,4 @@
 modules.txt
 test
 .idea
+*.pyc
