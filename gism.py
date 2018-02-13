@@ -41,6 +41,11 @@ def doNotUseColors():
 #FIXME: test runtime dependencies
 #FIXME: add git support for initial checkout (no updates yes)
 
+def del_rw(action, name, exc):
+    import stat
+    os.chmod(name, stat.S_IWRITE)
+    os.remove(name)
+
 def uprint(line):
     print(line)
     sys.stdout.flush()
@@ -83,20 +88,24 @@ def check_url_access(url):
         return False
     return True
 
-def gitCheckout(url, destination):
-    ret = runDisplayCommand('git clone {} {}'.format(url, destination), True)
+def gitCheckout(url, destination, clean=False):
+    ret = runDisplayCommand('git clone {} {}'.format(url, destination))
     ret += gitUpdate(destination)
+    if clean:
+        ret += runDisplayCommand('git clean -dfx')
     return ret
 
-def gitUpdate(path, reset=False):
+def gitUpdate(path, reset=False, clean=False):
     pwd = os.getcwd()
     os.chdir(path)
     runDisplayCommand('git fetch')
     if reset:
-        ret = runDisplayCommand('git reset --hard origin', True)
+        ret = runDisplayCommand('git reset --hard origin')
     else:
         ret = runDisplayCommand('git pull --rebase')
-        ret += runDisplayCommand('git submodule update --init --recursive', True)
+        ret += runDisplayCommand('git submodule update --init --recursive')
+    if clean:
+        ret += runDisplayCommand('git clean -dfx')
     os.chdir(pwd)
     return ret
 
@@ -126,7 +135,19 @@ def svnUpdateForce(path="", revParam="", svnOptions=""):
         return runDisplayCommand(svn_update_cmd)
     return 0
 
-def svnCheckout(url, revision, destination, cache="", reset=False):
+def svnCleanDirectory(svn_directory):
+    unversioned_regexp = re.compile('^ ?[\?ID] *[1-9 ]*[a-zA-Z]* +(.*)')
+    for cmd_line in  os.popen('svn status --no-ignore -v ' + svn_directory).readlines():
+        match_result = unversioned_regexp.match(cmd_line)
+        if match_result:
+            to_del = match_result.group(1)
+            uprint("Removing '{}'...".format(to_del))
+            if os.path.isdir(to_del):
+                rmtree(to_del, onerror=del_rw)
+            else:
+                os.remove(to_del)
+
+def svnCheckout(url, revision, destination, cache="", reset=False, clean=False):
     """ The cache system improves performance of initial branch builds on continuous integration"""
     svnDestination = destination
     ret = 0
@@ -171,16 +192,14 @@ def svnCheckout(url, revision, destination, cache="", reset=False):
             uprint("SVN URL changed from " + current_svn_url + " to " + url)
             if os.path.exists(svnDestination):
                 runDisplayCommand("svn cleanup " + svnDestination)
-            def del_rw(action, name, exc):
-                import stat
-                os.chmod(name, stat.S_IWRITE)
-                os.remove(name)
             rmtree(svnDestination +"/"+".svn", onerror=del_rw)
             ret = runDisplayCommand(svn_checkout_cmd)
         else:
             ret = svnUpdateForce(svnDestination, revParam, svnoptions)
     if reset:
         ret = runDisplayCommand("svn revert -R " + svnDestination)
+    if clean:
+        svnCleanDirectory(svnDestination)
 
     if ret != 0:
         uprint(COLORS.RED + "Error updating from SVN, will try using rename fallback" + COLORS.DEFAULT)
@@ -216,7 +235,7 @@ gitRE = re.compile('^ssh://')
 includeRE = re.compile('^include')
 
 
-def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False, reset=False, variables={}, svnparameters=None):
+def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False, reset=False, variables={}, svnparameters=None, clean=False):
     global svnoptions
     ret = 0
 
@@ -253,7 +272,7 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
             doRecursion = recursive
             if svnRE.match(url):
                 if check_url_access(url):
-                    retvalue = svnCheckout(url, revision, destination, cache, reset)
+                    retvalue = svnCheckout(url, revision, destination, cache, reset, clean)
                     if retvalue != 0:
                         uprint(COLORS.RED + "to login on SVN ask sysadmin for login and password" + COLORS.DEFAULT)
                         return retvalue
@@ -263,9 +282,9 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
             elif gitRE.match(url):
                 if check_url_access(url):
                     if os.access(destination+"/.git", os.R_OK):
-                        ret += gitUpdate(destination, reset)
+                        ret += gitUpdate(destination, reset, clean)
                     else:
-                        ret += gitCheckout(url, destination)
+                        ret += gitCheckout(url, destination, clean)
                 else:
                     ret += 1
             elif includeRE.match(url):
@@ -301,7 +320,8 @@ if __name__ == '__main__':
     parser.add_argument('--template', help='Use template file')
     parser.add_argument('--useCommitTime', help="Use the commit time for checkouted files", action='store_true')
     parser.add_argument('--nocolor', help="Do not use colored display", action='store_true')
-    parser.add_argument('--reset', help="Do revert modules to their initial state", action='store_true')
+    parser.add_argument('--reset', help="Revert modules to their initial file states", action='store_true')
+    parser.add_argument('--clean', help="Remove untracked files", action='store_true')
     parser.add_argument('--variables', help="Specify variables in JSON format. They will be used in modules.txt as ${Variable}")
     parser.add_argument('--svnparameters', help="Allows to add parameters to svn checkout/update commands, for instance: --svnparameters=\"--username=...")
 
@@ -327,4 +347,4 @@ if __name__ == '__main__':
         except Exception as e:
             print("Could not parse given variables. Please use JSON format (ex.: '{\"myvar\": \"myval\"}')")
             sys.exit(2)
-    sys.exit(update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive, reset=args.reset, variables=variables, svnparameters=args.svnparameters))
+    sys.exit(update(cache=args.cache, buildonly=args.buildonly, template=template, modules=args.modules, dest=args.dest, recursive=args.recursive, reset=args.reset, variables=variables, svnparameters=args.svnparameters, clean=args.clean))
