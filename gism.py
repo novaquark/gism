@@ -69,12 +69,12 @@ def setOS():
         hostOS = "win"
         rsync = "rsync.exe"
         git = "git.exe"
-    elif hostOS == "Linux":
+    elif hostOS == "Linux" or hostOS == "Darwin":
         hostOS = "linux"
         rsync = "rsync"
         git = "git"
     else:
-        uprint(COLORS.RED + "Unsupported OS" + COLORS.DEFAULT)
+        uprint(COLORS.RED + "Unsupported OS '" + hostOS + "'" + COLORS.DEFAULT)
         exit(1)
 
 setOS()
