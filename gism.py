@@ -166,10 +166,6 @@ def svnCheckout(url, revision, destination, cache="", reset=False, clean=False):
             useCache=False
             uprint(COLORS.BLUE + "Will not use cache, checkout has already been done" + COLORS.DEFAULT)
 
-    #cleanup in case the previous run failed
-    if os.path.exists(svnDestination):
-        runDisplayCommand("svn cleanup " + svnDestination)
-
     # checkout to the final dest or to the cache
     if revision != "trunk":
         revParam = "-r " + revision
