@@ -178,7 +178,7 @@ def svnCheckout(url, revision, destination, cache="", reset=False, clean=False):
         revParam = ""
         revURL = ""
 
-    svn_checkout_cmd = "svn checkout --force " + svnoptions + " " + url + revURL + " " + svnDestination
+    svn_checkout_cmd = "svn checkout --force {0} {1}{2} {3}".format(svnoptions, url, revURL, svnDestination)
     if not os.access(destination+"/"+".svn", os.R_OK):
         ret = runDisplayCommand(svn_checkout_cmd)
     else:
@@ -190,10 +190,19 @@ def svnCheckout(url, revision, destination, cache="", reset=False, clean=False):
         if(current_svn_url.rstrip('/') != url.rstrip('/')):
             #SVN URL has changed, let's change the targeted svn url
             uprint("SVN URL changed from " + current_svn_url + " to " + url)
+            ret = 1
             if os.path.exists(svnDestination):
                 runDisplayCommand("svn cleanup " + svnDestination)
-            rmtree(svnDestination +"/"+".svn", onerror=del_rw)
-            ret = runDisplayCommand(svn_checkout_cmd)
+                svn_switch_cmd = "svn switch --force {0} --ignore-ancestry --accept theirs-full {1}{2} {3}".format(svnoptions, url, revURL, svnDestination)
+                runDisplayCommand(svn_switch_cmd)
+                ret = os.system("svn status " + svnDestination)
+            if ret != 0:
+                ret = svnUpdateForce(svnDestination, revParam, svnoptions)
+                if ret != 0:
+                    rmtree(svnDestination +"/"+".svn", onerror=del_rw)
+                    ret = runDisplayCommand(svn_checkout_cmd)
+                    reset = True
+                    clean = True
         else:
             ret = svnUpdateForce(svnDestination, revParam, svnoptions)
     if reset:
