@@ -12,10 +12,12 @@ from shutil import copyfile, rmtree
 from distutils.spawn import find_executable as which
 from subprocess import check_output, check_call
 try:
-    from urllib.request import urlopen
     from urllib.error import HTTPError
+    from urllib.request import urlopen
+    from urllib.parse import urlparse
 except ImportError:
     from urllib2 import urlopen, HTTPError
+    from urlparse import urlsplit as urlparse
 import xml.etree.ElementTree as etree
 
 class COLORS:
@@ -81,12 +83,14 @@ setOS()
 
 def check_url_access(url):
     try:
-        urlopen(url, timeout=1)
+        url = re.sub('.*@', '', urlparse(url).netloc)
+        url = "http://" + url
+        urlopen(url, timeout=30)
     except HTTPError:
         pass
-    except:
-        return False
-    return True
+    except Exception as e:
+        return False, e
+    return True, None
 
 def gitCheckout(url, destination, clean=False):
     ret = runDisplayCommand('git clone {} {}'.format(url, destination))
@@ -158,7 +162,7 @@ def svnCheckout(url, revision, destination, cache="", reset=False, clean=False):
             if not os.access(svnDestination, os.R_OK):
                 os.makedirs(svnDestination)
             if not which(rsync):
-                uprint(COLORS.BLUE + "Need rsync in the PATH to use the cache" + COLORS.DEFAULT)
+                uprint(COLORS.RED + "Need rsync in the PATH to use the cache" + COLORS.DEFAULT)
                 exit(1)
             useCache=True
             uprint(COLORS.BLUE + "Will use cache since this is an initial checkout" + COLORS.DEFAULT)
@@ -275,23 +279,20 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
                     or ((buildonly ) and (not 'runtimeonly' in platform))):
             revision = revision.strip()
             doRecursion = recursive
+            url_status, url_error = check_url_access(url)
+            if not url_status:
+                uprint(COLORS.RED + "*** Error: could not access " + url + " (" + str(url_error) + ")" + COLORS.DEFAULT)
+                return 1
             if svnRE.match(url):
-                if check_url_access(url):
                     retvalue = svnCheckout(url, revision, destination, cache, reset, clean)
                     if retvalue != 0:
-                        uprint(COLORS.RED + "to login on SVN ask sysadmin for login and password" + COLORS.DEFAULT)
-                        return retvalue
+                        uprint(COLORS.RED + "*** Error: could not checkout " + url + COLORS.DEFAULT)
                     ret += retvalue
-                else:
-                    ret += 1
             elif gitRE.match(url):
-                if check_url_access(url):
-                    if os.access(destination+"/.git", os.R_OK):
-                        ret += gitUpdate(destination, reset, clean)
-                    else:
-                        ret += gitCheckout(url, destination, clean)
+                if os.access(destination+"/.git", os.R_OK):
+                    ret += gitUpdate(destination, reset, clean)
                 else:
-                    ret += 1
+                    ret += gitCheckout(url, destination, clean)
             elif includeRE.match(url):
                 pass
             else:
