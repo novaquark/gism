@@ -243,6 +243,13 @@ svnRE = re.compile('^http://')
 gitRE = re.compile('^ssh://')
 includeRE = re.compile('^include')
 
+def variableReplace(variables, line):
+    for key in variables:
+        newline = line.replace("${" + key + "}", variables[key])
+        if newline != line:
+            uprint(COLORS.PINK + "replaced: ${" + key + "} by " + variables[key] + COLORS.DEFAULT)
+            line = newline
+    return line
 
 def update(cache="", modules="modules.txt", dest=".", template="modules_template.txt", buildonly=False, runtimeonly=False, recursive=False, reset=False, variables={}, svnparameters=None, clean=False):
     global svnoptions
@@ -268,11 +275,8 @@ def update(cache="", modules="modules.txt", dest=".", template="modules_template
             continue
         uprint("\n## in " + os.getcwd())
         uprint("## " + "processing: " + COLORS.GREEN + line + COLORS.DEFAULT + " recursive=" + str(recursive))
-        for key in variables:
-            newline = line.replace("${" + key + "}", variables[key])
-            if newline != line:
-                uprint("replaced: ${" + key + "} by " + variables[key])
-                line = newline
+        line = variableReplace(variables, line)
+        line = variableReplace(os.environ, line)
         platform, url, destination, revision = line.split()
         if ((hostOS in platform) or ('all' in platform)) \
                 and (((not buildonly) and (not 'buildonly' in platform)) \
